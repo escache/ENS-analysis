@@ -5,7 +5,7 @@ Sourcegraph-based searches for leaked credentials and secrets in public GitHub r
 ## Quick start
 
 ```bash
-chmod +x scripts/sourcegraph-search.sh scripts/search-results.sh commands/sourcegraph-oneliners.sh
+chmod +x scripts/sourcegraph-search.sh scripts/analyze-results.sh commands/sourcegraph-oneliners.sh
 
 # List all presets
 ./scripts/sourcegraph-search.sh list
@@ -39,27 +39,36 @@ curl -fsSL 'https://sourcegraph.com/.api/search/stream?q=context:global+EVM_PRIV
   | rg -o 'github.com/[^/]+/[^/]+' | sort -u > results/evm-private-key.txt
 ```
 
-## Search saved results
+## Analyze results (fetch source per repo)
+
+After collecting repos into `results/`, inspect each repo's actual source via Sourcegraph:
 
 ```bash
-./scripts/search-results.sh list
-./scripts/search-results.sh grep eliza
-./scripts/search-results.sh org LayerZero-Labs
-./scripts/search-results.sh find github.com/elizaOS/eliza
-./scripts/search-results.sh union evm-private-key infura-key
-./scripts/search-results.sh intersect evm-private-key aws-secret
-./scripts/search-results.sh stats
-./scripts/search-results.sh save results/web3.txt union evm-private-key infura-key
+./scripts/analyze-results.sh list
+./scripts/analyze-results.sh evm-private-key     # -> analysis/evm-private-key.tsv
+./scripts/analyze-results.sh all                 # analyze every results/*.txt
+./scripts/analyze-results.sh summary
+./scripts/analyze-results.sh leaks               # show potential_leak + unknown rows
+./scripts/analyze-results.sh leaks evm-private-key
+```
+
+Each TSV row: `repo`, `file`, `line_no`, `status`, `preview`, `line`
+
+Status values: `potential_leak`, `placeholder`, `example_file`, `empty`, `commented`, `unknown`
+
+```bash
+JOBS=8 DELAY_SEC=0.1 ./scripts/analyze-results.sh all
 ```
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `scripts/sourcegraph-search.sh` | 40+ named presets with URL encoding and `custom` mode |
-| `scripts/search-results.sh` | Grep, filter, union/intersect/diff saved result files |
-| `commands/sourcegraph-oneliners.sh` | Shell functions + raw curl one-liners to copy/paste |
-| `results/` | Auto-generated output (gitignored) |
+| `scripts/sourcegraph-search.sh` | 40+ named presets; saves repos to `results/<preset>.txt` |
+| `scripts/analyze-results.sh` | Fetches source per repo, classifies key values |
+| `commands/sourcegraph-oneliners.sh` | Shell functions + raw curl one-liners |
+| `results/` | Repo lists from search (gitignored) |
+| `analysis/` | Per-repo source analysis TSVs (gitignored) |
 
 ## Preset categories
 
