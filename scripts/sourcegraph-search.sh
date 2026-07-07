@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # Sourcegraph secret/credential search helpers.
-# Streams global search results and extracts unique GitHub org/repo pairs.
+# Streams global search results, extracts unique GitHub org/repo pairs, saves to file.
 #
 # Usage:
-#   ./scripts/sourcegraph-search.sh <preset> [limit]
-#   ./scripts/sourcegraph-search.sh custom "context:global MY_QUERY file:.env" [limit]
+#   ./scripts/sourcegraph-search.sh <preset>
+#   ./scripts/sourcegraph-search.sh custom "context:global MY_QUERY file:.env"
 #   ./scripts/sourcegraph-search.sh list
+#
+# Output: results/<preset>.txt (override dir with RESULTS_DIR)
 #
 # Examples:
 #   ./scripts/sourcegraph-search.sh evm-private-key
-#   ./scripts/sourcegraph-search.sh aws-secret 50
-#   ./scripts/sourcegraph-search.sh custom "context:global INFURA_API_KEY" 30
+#   ./scripts/sourcegraph-search.sh aws-secret
+#   ./scripts/sourcegraph-search.sh custom "context:global INFURA_API_KEY"
 
 set -euo pipefail
 
 SG_API="https://sourcegraph.com/.api/search/stream"
-DEFAULT_LIMIT=20
+RESULTS_DIR="${RESULTS_DIR:-results}"
 
 urlencode() {
   local s="$1"
@@ -36,21 +38,25 @@ urlencode() {
 
 sg_search() {
   local query="$1"
-  local limit="${2:-$DEFAULT_LIMIT}"
+  local outfile="$2"
   local encoded
   encoded="$(urlencode "$query")"
 
+  mkdir -p "$RESULTS_DIR"
   curl -fsSL "${SG_API}?q=${encoded}&patternType=keyword&display=3000" \
     -H 'Accept: text/event-stream' 2>/dev/null \
     | rg -o 'github\.com/[^/"\\]+/[^/"\\]+' \
-    | sort -u \
-    | head -n "$limit"
+    | sort -u > "$outfile"
+
+  local count
+  count=$(wc -l < "$outfile" | tr -d ' ')
+  echo "Saved $count repos to $outfile" >&2
 }
 
 run_preset() {
   local name="$1"
-  local limit="${2:-$DEFAULT_LIMIT}"
   local query=""
+  local outfile="${RESULTS_DIR}/${name}.txt"
 
   case "$name" in
     # --- EVM / Web3 ---
@@ -199,12 +205,13 @@ run_preset() {
 
   echo "# preset: $name" >&2
   echo "# query:  $query" >&2
-  sg_search "$query" "$limit"
+  sg_search "$query" "$outfile"
 }
 
 list_presets() {
-  cat <<'EOF'
-Presets (run: ./scripts/sourcegraph-search.sh <preset> [limit]):
+  cat <<EOF
+Presets (run: ./scripts/sourcegraph-search.sh <preset>)
+Results saved to: ${RESULTS_DIR}/<preset>.txt
 
 EVM / Web3
   evm-private-key       EVM_PRIVATE_KEY in .env
@@ -263,20 +270,21 @@ EOF
 
 main() {
   local cmd="${1:-list}"
-  local limit="${3:-$DEFAULT_LIMIT}"
 
   case "$cmd" in
     list|-h|--help|help)
       list_presets
       ;;
     custom)
-      [[ -n "${2:-}" ]] || { echo "Usage: $0 custom \"<query>\" [limit]" >&2; exit 1; }
-      limit="${3:-$DEFAULT_LIMIT}"
-      sg_search "$2" "$limit"
+      [[ -n "${2:-}" ]] || { echo "Usage: $0 custom \"<query>\"" >&2; exit 1; }
+      local slug outfile
+      slug="custom-$(date -u +%Y%m%d-%H%M%S)"
+      outfile="${RESULTS_DIR}/${slug}.txt"
+      echo "# custom query: $2" >&2
+      sg_search "$2" "$outfile"
       ;;
     *)
-      limit="${2:-$DEFAULT_LIMIT}"
-      run_preset "$cmd" "$limit"
+      run_preset "$cmd"
       ;;
   esac
 }

@@ -10,20 +10,33 @@ chmod +x scripts/sourcegraph-search.sh commands/sourcegraph-oneliners.sh
 # List all presets
 ./scripts/sourcegraph-search.sh list
 
-# Run a preset (default: top 20 repos)
+# Run a preset — saves all repos to results/<preset>.txt
 ./scripts/sourcegraph-search.sh evm-private-key
-./scripts/sourcegraph-search.sh aws-secret 50
+./scripts/sourcegraph-search.sh aws-secret
 
-# Custom query
-./scripts/sourcegraph-search.sh custom "context:global INFURA_API_KEY file:.env" 30
+# Custom query — saves to results/custom-<timestamp>.txt
+./scripts/sourcegraph-search.sh custom "context:global INFURA_API_KEY file:.env"
 ```
+
+## Output
+
+All results are saved under `results/` (override with `RESULTS_DIR`):
+
+```
+results/evm-private-key.txt
+results/aws-secret.txt
+results/custom-20260707-153500.txt
+```
+
+Each file contains one `github.com/org/repo` per line, sorted and deduplicated.
 
 ## Original one-liner
 
 ```bash
+mkdir -p results
 curl -fsSL 'https://sourcegraph.com/.api/search/stream?q=context:global+EVM_PRIVATE_KEY+file:.env&patternType=keyword&display=3000' \
   -H 'Accept: text/event-stream' 2>/dev/null \
-  | rg -o 'github.com/[^/]+/[^/]+' | sort -u | head -20
+  | rg -o 'github.com/[^/]+/[^/]+' | sort -u > results/evm-private-key.txt
 ```
 
 ## Files
@@ -32,6 +45,7 @@ curl -fsSL 'https://sourcegraph.com/.api/search/stream?q=context:global+EVM_PRIV
 |------|---------|
 | `scripts/sourcegraph-search.sh` | 40+ named presets with URL encoding and `custom` mode |
 | `commands/sourcegraph-oneliners.sh` | Shell functions + raw curl one-liners to copy/paste |
+| `results/` | Auto-generated output (gitignored) |
 
 ## Preset categories
 
@@ -46,9 +60,8 @@ curl -fsSL 'https://sourcegraph.com/.api/search/stream?q=context:global+EVM_PRIV
 
 ```bash
 source commands/sourcegraph-oneliners.sh
-sg_evm_private_key
-sg_aws_secret 50
-sg_openai
+sg_evm_private_key    # -> results/evm-private-key.txt
+sg_aws_secret         # -> results/aws-secret.txt
 ```
 
 ## Notes
