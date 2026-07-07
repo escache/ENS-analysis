@@ -5,7 +5,7 @@ Sourcegraph-based searches for leaked credentials and secrets in public GitHub r
 ## Quick start
 
 ```bash
-chmod +x scripts/sourcegraph-search.sh commands/sourcegraph-oneliners.sh
+chmod +x scripts/sourcegraph-search.sh scripts/search-results.sh commands/sourcegraph-oneliners.sh
 
 # List all presets
 ./scripts/sourcegraph-search.sh list
@@ -39,11 +39,25 @@ curl -fsSL 'https://sourcegraph.com/.api/search/stream?q=context:global+EVM_PRIV
   | rg -o 'github.com/[^/]+/[^/]+' | sort -u > results/evm-private-key.txt
 ```
 
+## Search saved results
+
+```bash
+./scripts/search-results.sh list
+./scripts/search-results.sh grep eliza
+./scripts/search-results.sh org LayerZero-Labs
+./scripts/search-results.sh find github.com/elizaOS/eliza
+./scripts/search-results.sh union evm-private-key infura-key
+./scripts/search-results.sh intersect evm-private-key aws-secret
+./scripts/search-results.sh stats
+./scripts/search-results.sh save results/web3.txt union evm-private-key infura-key
+```
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `scripts/sourcegraph-search.sh` | 40+ named presets with URL encoding and `custom` mode |
+| `scripts/search-results.sh` | Grep, filter, union/intersect/diff saved result files |
 | `commands/sourcegraph-oneliners.sh` | Shell functions + raw curl one-liners to copy/paste |
 | `results/` | Auto-generated output (gitignored) |
 
